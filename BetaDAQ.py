@@ -4,6 +4,7 @@ from Data_Path_Setup import *
 from ROOTClass import *
 from general import *
 import gc
+import socket
 import datetime
 import time
 import subprocess
@@ -48,6 +49,10 @@ class BetaDAQ:
             if V_Check:
                 dataFileName = self.configFile.FileNameList[i]+".root"
                 outROOTFile = ROOTFileOutput(dataFileName, self.configFile.EnableChannelList)
+                
+                outROOTFile.create_branch("rate", "D")
+                outROOTFile.create_branch("ievent", "I")
+                
                 print("Ready for data taking")
 
                 import pyvisa as visa

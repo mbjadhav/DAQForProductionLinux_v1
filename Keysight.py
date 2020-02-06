@@ -83,6 +83,18 @@ class KeysightScope(object):
     def Close(self):
         self.inst.close()
 
+    #***************************************************************************
+    def reopen_resource(self):
+        print("reopen do nothing.")
+        '''
+        self.inst.close()
+        self.inst = self.rm.open_resource("TCPIP0::" + self.ip_addr + "::inst0::INSTR")
+        self.inst.clear()
+        idn = self.inst.read()
+        print("reponed: {}".format(idn))
+        self.acquisition_setting()
+        '''
+        
     #===========================================================================
     def Set_Channel_Display(self, channel, switch):
         self.inst.write("CHANnel{}:DISPlay {}".format(channel, switch))
@@ -205,7 +217,7 @@ class KeysightScope(object):
                 read_pnt = 0
                 self.inst.query(":WAVeform:SOURce CHANnel{};*OPC?".format(ch))
                 waveCount = int(self.inst.query(":WAVeform:POINts?"))/splitLevel
-                read_pnt = npts
+                read_pnt = waveCount
                 voltage_data = []
                 if self.segCount < 1:
                     wfm_ascii = self.inst.query(":WAVeform:DATA? {},{};*OPC?".format(start_pt, read_pnt)).split(";")[0]
@@ -216,9 +228,9 @@ class KeysightScope(object):
                     for seg in range(self.segCount*splitLevel):
                         for splt in range(splitLevel):
                             if splt != splitLevel-2:
-                                read_pnt = npts
+                                read_pnt = waveCount
                             else:
-                                read_pnt = npts + 3
+                                read_pnt = waveCount + 3
                             wfm_ascii = self.inst.query(":WAVeform:DATA? {},{};*OPC?".format(start_pt, read_pnt)).split(";")[0]
                             wfm_ascii = wfm_ascii[:-1]
                             wfm_ascii = [float(s) for s in wfm_ascii.split(",")]
@@ -230,15 +242,15 @@ class KeysightScope(object):
                                 start_pt += waveCount + 3
                 
                 time_data = []
-                x_inc = float(self.inst.query(":WAVeform:XINC?")) # Get the waveform's X increment
-                x_or = float(self.inst.query(":WAVeform:XOR?")) # Get the waveform's X origin
+                x_inc = float(self.inst.query(":WAVeform:XINCreament?")) # Get the waveform's X increment
+                x_or = float(self.inst.query(":WAVeform:XORigin?")) # Get the waveform's X origin
                 time_data = np.linspace(x_or, x_or+waveCount*x_inc, waveCount) # Calculate the sample times of the waveform
                 voltage_list.append(voltage_data)
                 time_list.append(time_data)
             '''
-            x_inc = float(self.inst.query(":WAVeform:XINC?")) # Get the waveform's X increment
-            x_or = float(self.inst.query(":WAVeform:XOR?")) # Get the waveform's X origin
-            last_t = float(xorigin)
+            x_inc = float(self.inst.query(":WAVeform:XINCreament?")) # Get the waveform's X increment
+            x_or = float(self.inst.query(":WAVeform:XORigin?")) # Get the waveform's X origin
+            last_t = float(x_or)
             for ch, chan in enumerate(voltage_list):
                 for i in range(len(chan)):
                     time_list[ch].append(last_t+float(x_inc))

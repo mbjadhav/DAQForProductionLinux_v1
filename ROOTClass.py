@@ -10,6 +10,8 @@ class ROOTFileOutput():
         self.i_timestamp = array( "d", [0] )
         self.i_current = array( "d", [0] )
         self.threshold_level = array("d", [0])
+        self.additional_branch = dict()
+        
         if opt is None:
             pass
         elif "Threshold_scan" in opt:
