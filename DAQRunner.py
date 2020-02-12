@@ -13,7 +13,7 @@ if __name__ == "__main__":
     editConfig = raw_input("\nDo you want to edit BetaDAQ_Config?[y/n]: ")
     if "y" in editConfig:
         subprocess.call([editor, "BetaDAQ_Config.ini"])
-        raw_input("\nProceed ahead?[y]: ")
+        raw_input("\nProceed ahead?[Enter]: ")
     DAQ = BetaDAQ("BetaDAQ_Config.ini")
     
     runningMode = raw_input("\nIs it a Beta Measurement?[y/n]: ")

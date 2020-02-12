@@ -4,14 +4,11 @@ from Data_Path_Setup import *
 from ROOTClass import *
 from general import *
 import gc
-import socket
 import datetime
 import time
 import subprocess
 import shutil
 import numpy as np
-
-INCR = 20
 
 class BetaDAQ:
     def __init__(self, configFileName):
@@ -39,7 +36,7 @@ class BetaDAQ:
             pass
         shutil.copy("Sr_Run_" + str(self.configFile.RunNumber) + "_Description.ini",  "/home/labuser/betaspectra/DAQlog/")
 
-	Scope = ScopeProducer( self.configFile )
+        Scope = ScopeProducer( self.configFile )
         PowerSupply = PowerSupplyProducer( self.configFile )
         PowerSupply.SetVoltage(self.configFile.PSTriggerChannel, self.configFile.TriggerVoltage)
 
@@ -48,110 +45,63 @@ class BetaDAQ:
             V_Check = PowerSupply.ConfirmVoltage( self.configFile.PSDUTChannel, self.configFile.VoltageList[i] )
             if V_Check:
                 dataFileName = self.configFile.FileNameList[i]+".root"
-                outROOTFile = ROOTFileOutput(dataFileName, self.configFile.EnableChannelList)
-
-                outROOTFile.create_branch("rate", "D")
-                outROOTFile.create_branch("ievent", "I")
-
+                outROOTFile = ROOTFileOutput(dataFileName, self.configFile.EnableChannelList )
                 print("Ready for data taking")
 
-                import pyvisa as visa
-                rm = visa.ResourceManager("@py")
-                xid = rm.visalib.sessions[Scope.Scope.inst.session].interface.lastxid
-
-                current_100cycle = PowerSupply.CurrentReader(self.configFile.PSDUTChannel)
+                current_100cycle = 0.0
                 start_time = time.time()
                 event = 0
                 fail_counter = 0
-                
-                rate_checker = time.time()
-                daq_current_rate = 0
-                
                 while event < self.configFile.NumEvent:
+                    event += 1
+                    Scope.WaitForTrigger()
+                    #print("pass wait")
+                    outROOTFile.i_timestamp[0] = time.time()
+                    if event==0 or event%50==0:
+                        current_100cycle = PowerSupply.CurrentReader( self.configFile.PSDUTChannel )
+                    outROOTFile.i_current[0] = current_100cycle
+                    waveData = ""
                     try:
-                        event += INCR
-                        outROOTFile.additional_branch["ievent"][0] = event
-                        
-                        Scope.WaitForTrigger()
-                        #print("pass wait")
-                        outROOTFile.i_timestamp[0] = time.time()
-                        if ((event-INCR)==0 or (event+INCR)%100==0):
-                            current_100cycle = PowerSupply.CurrentReader( self.configFile.PSDUTChannel )
-                        outROOTFile.i_current[0] = current_100cycle
-                        waveData = ""
-                        try:
-                            waveData = Scope.GetWaveform( self.configFile.EnableChannelList, "ascii")
-                            #print(waveData)
-                        except Exception as e:
-                            event -= INCR
-                            fail_counter += 1
-                            print("fail getting data. {} because of : {}".format(fail_counter, e))
-                            '''
-                            try:
-                                Scope.Scope.reopen_resource()
-                            except Exception as err:
-                                print(err)
-                            '''    
-                            if fail_counter == 10000:
-                                break
-                            else:
-                                continue
-
-                        if len(waveData) == 0:
-                            event -= INCR
-                            print("empty waveData...Please report this issue")
-                            continue
-                        elif len(waveData[0]) != len(self.configFile.EnableChannelList ):
-                            event -= INCR
-                            print("waveData and channel mismatch {} {}, Please report this issue".format(len(waveData[0]), len(self.configFile.EnableChannelList)))
-                            continue
+                        waveData = Scope.GetWaveform( self.configFile.EnableChannelList, "ascii")
+                    #print("took waveform")
+                    except:
+                        event -= 1
+                        fail_counter += 1
+                        print("fail getting data. {}".format(fail_counter))
+                        if fail_counter == 100000:
+                            break
                         else:
-                            pass
+                            continue
 
-                        for ch in range(len(self.configFile.EnableChannelList)):
-                            for j in range( len(waveData[0][ch]) ):
-                                try:
-                                    outROOTFile.w[ch].push_back( float(waveData[1][ch][j]) )
-                                    outROOTFile.t[ch].push_back( waveData[0][ch][j] )
-                                except:
-                                    if j == 0:
-                                        print("push_back( float(waveData[1][ch][j]) ) error")
-                                          #outROOTFile.w[ch].push_back(0)
-                                          #outROOTFile.t[ch].push_back(0)
-                                    continue
-                        outROOTFile.Fill()
-                        waveData = []
-                        waveData = ""
-                        gc.collect()
-                        
-                        if((event+INCR)%100==0):
-                            daq_current_rate = 100.0/(time.time() - rate_checker)
-                            outROOTFile.additional_branch["rate"][0] = daq_current_rate
-                            date = datetime.datetime.now()
-                            rate_checker = time.time()
-                            print("[{date}] Saved event on local disk : {event}/{total}, rate:{rate}".format(date=str(date), event=event+INCR, total=self.configFile.NumEvent, rate=daq_current_rate))
-                            #print("[{}] Saved event on local disk : {}".format(str(date), event))
-                            if daq_current_rate < 0.5:
-                                print("The rate is less than 1. Performaing trigger check ")
-                                PowerSupply.PowerSupply.checkTripped(self.configFile.PSTriggerChannel, self.configFile.TriggerVoltage)
-                    
-                    except socket.error, e:
+                    if len(waveData) == 0:
                         event -= 1
-                        print("Catch exception: {daq_error}, ".format(daq_error=e))
-                        print("Continue data taking.")
-                    except Exception as E:
+                        print("empty waveData...Please report this issue")
+                        continue
+                    elif len(waveData[0]) != len(self.configFile.EnableChannelList ):
                         event -= 1
-                        print("Catch unknown exception: {daq_error}, ".format(daq_error=E))
-                        print("Continue data taking.")
-                        print(Scope.Scope.rm.visalib.sessions)
-                        print(Scope.Scope.inst.session)
-                        print(Scope.Scope.rm.visalib.sessions[Scope.Scope.inst.session].interface.lastxid)
-                         
-                        try:
-                            Scope.Scope.reopen_resource()
-                        except Exception as err:
-                            print(err)
-                        
+                        print("waveData and channel mismatch, Please report this issue")
+                        continue
+                    else:
+                        pass
+
+                    for ch in range(len(self.configFile.EnableChannelList)):
+                        for j in range( len(waveData[0][ch]) ):
+                            try:
+                                outROOTFile.w[ch].push_back( float(waveData[1][ch][j]) )
+                                outROOTFile.t[ch].push_back( waveData[0][ch][j] )
+                            except:
+                                if j == 0:
+                                    print("push_back( float(waveData[1][ch][j]) ) error")
+                                      #outROOTFile.w[ch].push_back(0)
+                                      #outROOTFile.t[ch].push_back(0)
+                                continue
+                    outROOTFile.Fill()
+                    waveData = []
+                    waveData = ""
+                    gc.collect()
+                    if(event%1==0):
+                        date = datetime.datetime.now()
+                        print("[{}] Saved event on local disk : {}".format(str(date), event))
                 outROOTFile.Close()
                 currentAfter = PowerSupply.CurrentReader( self.configFile.PSDUTChannel )
                 current_file.write("{}:{}:{}\n".format(self.configFile.VoltageList[i], "After", currentAfter))

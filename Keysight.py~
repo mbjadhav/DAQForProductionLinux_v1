@@ -24,7 +24,7 @@ class KeysightScope(object):
         #print(ip_address)
         self.rm=visa.ResourceManager("@py")
         print("Using ethernet connection: ")
-        self.inst = self.rm.open_resource("TCPIP0::" + ip_address + "::inst0::INSTR", read_termination='\n', write_termination='\n', chunk_size=1024,)
+        self.inst = self.rm.open_resource("TCPIP0::" + ip_address + "::inst0::INSTR", read_termination='\n', write_termination='\n', chunk_size=1024)
         #self.inst.write("*IDN?;")
         #idn = self.inst.read()
         self.inst.clear()
@@ -112,10 +112,9 @@ class KeysightScope(object):
         self.inst.write(":ACQuire:BANDwidth MAX")
         self.inst.write(":ACQuire:INTerpolate OFF")
         self.inst.write(":ACQuire:AVERage OFF")
-        #self.inst.write(":ACQuire:POINts:AUTO ON")
-        self.inst.write(":ACQuire:POINts 2002")
+        self.inst.write(":ACQuire:POINts:AUTO ON")
         self.inst.write(":ACQuire:COMPlete 100")
-        #self.inst.write(":WAVeform:FORMAT ASCii")
+        self.inst.write(":WAVeform:FORMAT ASCii")
         self.inst.write(":WAVeform:STReaming ON")
         self.inst.write(":WAVeform:SEGMented:ALL ON")
         self.inst.write("*SRE 7")
@@ -123,7 +122,7 @@ class KeysightScope(object):
         self.inst.write("*SRE 0")
         self.inst.write(":RUN")
 
-        self.inst.write(":SYST:GUI OFF")
+        #self.inst.write(":SYST:GUI OFF")
 
         self.segCount = self.default_seg_count#int(self.inst.query(":WAV:SEGM:COUN?"))
         print("seg count = {}".format(self.segCount))
@@ -145,7 +144,7 @@ class KeysightScope(object):
         self.inst.write(":WAVeform:FORMAT WORD")
         self.inst.write(":WAVeform:BYTEORDER MSBF") # Set the byte order to Big-Endian (default for Infinium oscilloscopes)
         #self.inst.write(":WAVeform:STReaming 1")
-        #self.inst.write(":DIGitize")
+        self.inst.write(":DIGitize")
         #print("in keysight")
         
         if isinstance(channel, list):
@@ -163,10 +162,9 @@ class KeysightScope(object):
                 y_or = float(self.inst.query(":WAVeform:YOR?"))
                 voltage_data = binary_stream*y_inc + y_or
                 waveCount = int(self.inst.query(":WAVeform:POINts?")) # Get the number of sample points in the waveform
-                #print("waveCount is {}".format(waveCount))
                 x_inc = float(self.inst.query(":WAVeform:XINC?")) # Get the waveform's X increment
                 x_or = float(self.inst.query(":WAVeform:XOR?")) # Get the waveform's X origin
-                time_data = np.linspace(x_or, x_or+(waveCount+1)*x_inc, waveCount) # Calculate the sample times of the waveform
+                time_data = np.linspace(x_or, x_or+waveCount*x_inc, waveCount) # Calculate the sample times of the waveform
                 #horizontal_offset = trcReader(binary_stream, "HORIZ_OFFSET", ch)
                 #horizontal_inter = trcReader(binary_stream, "HORIZ_INTERVAL", ch)
                 #print("complete taking waveform")
@@ -205,8 +203,7 @@ class KeysightScope(object):
         splitLevel = 1
         
         #self.inst.write(":WAVeform:BYTEORDER MSBF") # Set the byte order to Big-Endian (default for Infinium oscilloscopes)
-        self.inst.write(":WAVeform:FORMAT ASCii")
-         
+                    
         if isinstance(channel, list):
             for ch in channel:
                 start_pt = 1
@@ -231,21 +228,12 @@ class KeysightScope(object):
                             else:
                                 read_pnt = waveCount + 3
                                 print("in splt != splitLevel-2 else loop {}".format(splt))
-                            print("wfm_ascii wavecount {}".format(waveCount))
-			    #wfm_ascii_debug1 = self.inst.query(":WAVeform:DATA? {},{};*OPC?".format(start_pt, read_pnt*self.segCount))
-		            #with open('wfm_ascii_debug_1.txt', 'w') as f:
-		            #    f.write(wfm_ascii_debug1)
+                            print("before wfm_ascii {} {}".format(waveCount, read_pnt))
                             wfm_ascii = self.inst.query(":WAVeform:DATA? {},{};*OPC?".format(start_pt, read_pnt)).split(";")[0]
-		            #with open('wfm_ascii_debug.txt', 'w') as f:
-		            #    f.write(wfm_ascii_debug)
-			    #wfm_ascii = wfm_ascii_debug.split(";")[0]
-                            #wfm_ascii = self.inst.query(":WAVeform:DATA? {},{};*OPC?".format(start_pt, read_pnt)).split(";")[0]
-			    print("wfm_ascii before split {}".format(wfm_ascii))
-                            #with open('wfm_ascii_debug_0.txt', 'w') as f:
-                            #    f.write(wfm_ascii)
+			    print("after wfm_ascii  {}".format(wfm_ascii))
                             #wfm_ascii = wfm_ascii[:-1]
                             wfm_ascii = [float(x) for x in wfm_ascii.split(",")][:-1]
-			    print("wfm_ascii after split {}".format(wfm_ascii))
+			    print("after wfm_ascii split {}".format(wfm_ascii))
                             voltage_data += wfm_ascii
                             print("set to get waveform")
                             if splt != splitLevel-2:
@@ -258,15 +246,13 @@ class KeysightScope(object):
                 '''
                 x_inc = float(self.inst.query(":WAVeform:XINC?")) # Get the waveform's X increment
                 x_or = float(self.inst.query(":WAVeform:XOR?")) # Get the waveform's X origin
-                time_data = np.linspace(x_or, x_or+(waveCount+1)*x_inc, waveCount) # Calculate the sample times of the waveform
+                time_data = np.linspace(x_or, x_or+waveCount*x_inc, waveCount) # Calculate the sample times of the waveform
 		'''
                 voltage_list.append(voltage_data)
                 time_list.append(time_data)
             
-            #x_inc = float(self.inst.query(":WAVeform:XINCreament?")) # Get the waveform's X increment
-            #x_or = float(self.inst.query(":WAVeform:XORigin?")) # Get the waveform's X origin
-            x_inc = self.inst.query(":WAVeform:XINCreament?;*OPC?".format(ch)).split(";")[0] # Get the waveform's X increment
-            x_or = self.inst.query(":WAVeform:XORigin?;*OPC?".format(ch)).split(";")[0] # Get the waveform's X origin
+            x_inc = float(self.inst.query(":WAVeform:XINCreament?")) # Get the waveform's X increment
+            x_or = float(self.inst.query(":WAVeform:XORigin?")) # Get the waveform's X origin
             last_t = float(x_or)
             for ch, chan in enumerate(voltage_list):
                 for i in range(len(chan)):
@@ -295,14 +281,12 @@ class KeysightScope(object):
     
         voltage_list = []
         time_list = []
-        waveCount = ""
+        #waveCount = ""
         segmentCount = ""
         splitLevel = 1
         
         #self.inst.write(":WAVeform:BYTEORDER MSBF") # Set the byte order to Big-Endian (default for Infinium oscilloscopes)
-        self.inst.write(":WAVeform:FORMAT WORD")
-        self.inst.write(":WAVeform:BYTEORDER MSBF")
-        
+                    
         if isinstance(channel, list):
             for ch in channel:
                 start_pt = 1
@@ -311,49 +295,45 @@ class KeysightScope(object):
                 waveCount = int(self.inst.query(":WAVeform:POINts?"))/splitLevel
                 read_pnt = waveCount
                 voltage_data = []
-                voltage_stream = []
-                print("waveCount is {}".format(waveCount))
-
+                
                 if self.segCount < 1:
-                    #wfm_ascii = self.inst.query(":WAVeform:DATA? {},{};*OPC?".format(start_pt, read_pnt)).split(";")[0]
-                    wfm_ascii = self.inst.query_binary_values(":WAVeform:DATA?;*OPC?", 'h', is_big_endian = True, container = np.array, expect_termination=False)
-                    y_inc = float(self.inst.query(":WAVeform:YINC?"))
-                    y_or = float(self.inst.query(":WAVeform:YOR?"))
-                    voltage_stream = wfm_ascii*y_inc + y_or
+                    wfm_ascii = self.inst.query(":WAVeform:DATA? {},{};*OPC?".format(start_pt, read_pnt)).split(";")[0]
                     #wfm_ascii = wfm_ascii[:-1]
-                    #wfm_ascii = [float(x) for x in wfm_ascii.split(",")][:-1]
-                    voltage_data += voltage_stream
+                    wfm_ascii = [float(x) for x in wfm_ascii.split(",")][:-1]
+                    voltage_data += wfm_ascii
                 else:
                     for seg in range(self.segCount*splitLevel):
+                        print("in segment loop {}".format(seg))
                         for splt in range(splitLevel):
                             if splt != splitLevel-2:
                                 read_pnt = waveCount
+                                print("in splt != splitLevel-2 loop {}".format(splt))
                             else:
                                 read_pnt = waveCount + 3
-                            #wfm_ascii = self.inst.query(":WAVeform:DATA? {},{};*OPC?".format(start_pt, read_pnt)).split(";")[0]
-                            wfm_ascii = self.inst.query_binary_values(":WAVeform:DATA?;*OPC?", 'h', is_big_endian = True, container = np.array, expect_termination=False)
-			    print("waveCount1 is {}".format(waveCount))
-                            
+                                print("in splt != splitLevel-2 else loop {}".format(splt))
+                            print("before wfm_ascii {} {}".format(waveCount, read_pnt))
+                            wfm_ascii = self.inst.query(":WAVeform:DATA? {},{};*OPC?".format(start_pt, read_pnt)).split(";")[0]
+			    print("after wfm_ascii  {}".format(wfm_ascii))
                             #wfm_ascii = wfm_ascii[:-1]
-                            #wfm_ascii = [float(x) for x in wfm_ascii.split(",")][:-1]
-			    y_inc = float(self.inst.query(":WAVeform:YINC?"))
-                            y_or = float(self.inst.query(":WAVeform:YOR?"))
-                            voltage_stream = wfm_ascii*y_inc + y_or
-                            voltage_data += voltage_stream
+                            wfm_ascii = [float(x) for x in wfm_ascii.split(",")][:-1]
+			    print("after wfm_ascii split {}".format(wfm_ascii))
+                            voltage_data += wfm_ascii
+                            print("set to get waveform")
                             if splt != splitLevel-2:
                                 start_pt += waveCount
                             else:
                                 start_pt += waveCount + 3
                 
                 time_data = []
-                
+
+                '''
                 x_inc = float(self.inst.query(":WAVeform:XINC?")) # Get the waveform's X increment
                 x_or = float(self.inst.query(":WAVeform:XOR?")) # Get the waveform's X origin
-                time_data = np.linspace(x_or, x_or+(waveCount+1)*x_inc, waveCount) # Calculate the sample times of the waveform
-		
+                time_data = np.linspace(x_or, x_or+waveCount*x_inc, waveCount) # Calculate the sample times of the waveform
+		'''
                 voltage_list.append(voltage_data)
                 time_list.append(time_data)
-            '''
+            
             x_inc = float(self.inst.query(":WAVeform:XINCreament?")) # Get the waveform's X increment
             x_or = float(self.inst.query(":WAVeform:XORigin?")) # Get the waveform's X origin
             last_t = float(x_or)
@@ -361,7 +341,7 @@ class KeysightScope(object):
                 for i in range(len(chan)):
                     time_list[ch].append(last_t+float(x_inc))
                     last_t += float(x_inc)
-            '''
+            
             #print(len(voltage_list))
             #return [t_output, v_output]
             if seq_mode:
@@ -372,25 +352,20 @@ class KeysightScope(object):
         elif isinstance(channel, int):
             channel_list = []
             channel_list.append(channel)
-            return self._Get_Waveform_BinaryI(channel_list)
+            return self._Get_Waveform_ASCII(channel_list)
         else:
             raise ValueError("Non-supported channel input. Please feed in list of int of single int.")
 
    #===========================================================================
-    def Get_Waveform(self, channel, mode="binary_1", seq_mode=False):
+    def Get_Waveform(self, channel, mode="binary", seq_mode=False):
         if "binary" in mode and "raw" in mode:
             try:
                 return self._Get_Waveform_Binary(channel, raw=True)
             except ValueError as error:
                 print(error)
-        elif "binary_1" in mode:
+        elif "binary" in mode:
             try:
                 return self._Get_Waveform_Binary(channel, False, seq_mode)
-            except ValueError as error:
-                print(error)
-        elif "binary_2" in mode:
-            try:
-                return self._Get_Waveform_BinaryI(channel, seq_mode)
             except ValueError as error:
                 print(error)
         elif "ascii" in mode:

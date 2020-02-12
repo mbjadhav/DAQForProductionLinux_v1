@@ -177,6 +177,36 @@ class SimpleCaenPowerSupply(object):
                 return 1
         return 0
 
+    def read_channel_status_bit(self, channel ):
+        stat = self.simple_query( "STAT", channel )
+        stat = stat.split("\r")[0]
+        return stat
+
+    def decodeStatusBit( self, status, bit):
+        '''
+        decoding the channel status bit
+
+        param status := is the raw input bit,
+        param bit := the bit you want to check against.
+        '''
+        status_bits = format(int(status), "#016b")
+        if bit > 15:
+            print("bit > max bit(15)")
+        else:
+            if status_bits[15-bit] == "1":
+                print("WARNING: %s"%self.__status_bit_meaning[bit][1])
+                return 1
+            else:
+                return 0
+
+
+    def checkTripped(self, ch, voltage):
+        #check to see if the channel is tripped
+        status_bit = self.read_channel_status_bit(ch)
+        tripped = self.decodeStatusBit( status_bit, 7)
+        if tripped:
+            self.channel_switch(ch, "ON")
+            self.set_voltage_Q(ch, voltage)
 
 
     def close(self, channel):

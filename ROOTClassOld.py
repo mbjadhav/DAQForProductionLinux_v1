@@ -10,8 +10,6 @@ class ROOTFileOutput():
         self.i_timestamp = array( "d", [0] )
         self.i_current = array( "d", [0] )
         self.threshold_level = array("d", [0])
-        self.additional_branch = dict()
-
         if opt is None:
             pass
         elif "Threshold_scan" in opt:
@@ -33,20 +31,6 @@ class ROOTFileOutput():
         for b in self.t:
             b.clear()
 
-    def create_branch(self, name, type):
-        if type == "D":
-            self.additional_branch[str(name)] = array("d", [0])
-        elif type == "I":
-            self.additional_branch[str(name)] = array("i", [0])
-        else:
-            print(" >> Invalid data type for {branch}".format(branch=name))
-            print(" >> Using default (type Double)")
-
-        self.ttree.Branch(str(name), self.additional_branch[name], "%s/%s"%(name, type) )
-        print(" >> additional branch (%s) is created"%name)
-
     def Close(self):
-        print(" >> Writing file")
         self.tfile.Write()
         self.tfile.Close()
-        print(" >> file is finished")
