@@ -24,13 +24,15 @@ class KeysightScope(object):
         #print(ip_address)
         self.rm=visa.ResourceManager("@py")
         print("Using ethernet connection: ")
-        self.inst = self.rm.open_resource("TCPIP0::" + ip_address + "::inst0::INSTR", read_termination='\n', write_termination='\n', chunk_size=1024,)
+        self.inst = self.rm.open_resource("TCPIP0::" + ip_address + "::inst0::INSTR", read_termination='\n', write_termination='\n', chunk_size=1024)
         #self.inst.write("*IDN?;")
         #idn = self.inst.read()
         self.inst.clear()
         self.inst.write("*CLR?;")
         idn = self.inst.query("*IDN?;")
         
+        self.default_seg_count = 20
+
         if "KEYSIGHT" in idn:
             print("\nConnected to Keysight infinium DSOS204A Oscilloscope.\n")
             time.sleep(0.01)
@@ -51,7 +53,6 @@ class KeysightScope(object):
                     board += 1
                     #return
 
-        self.default_seg_count = 20
         self.inst.timeout =100000
 
     #===========================================================================
@@ -112,10 +113,10 @@ class KeysightScope(object):
         self.inst.write(":ACQuire:BANDwidth MAX")
         self.inst.write(":ACQuire:INTerpolate OFF")
         self.inst.write(":ACQuire:AVERage OFF")
-        #self.inst.write(":ACQuire:POINts:AUTO ON")
-        self.inst.write(":ACQuire:POINts 2002")
+        self.inst.write(":ACQuire:POINts:AUTO ON")
+        #self.inst.write(":ACQuire:POINts 50")
         self.inst.write(":ACQuire:COMPlete 100")
-        #self.inst.write(":WAVeform:FORMAT ASCii")
+        self.inst.write(":WAVeform:FORMAT ASCii")
         self.inst.write(":WAVeform:STReaming ON")
         self.inst.write(":WAVeform:SEGMented:ALL ON")
         self.inst.write("*SRE 7")
@@ -196,18 +197,18 @@ class KeysightScope(object):
     def _Get_Waveform_ASCII(self, channel, seq_mode=False):
     
     #Get waveform with ascii format. Loop through list of channels.
-   
-    
-        voltage_list = []
-        time_list = []
-        #waveCount = ""
-        segmentCount = ""
-        splitLevel = 1
+ 
         
         #self.inst.write(":WAVeform:BYTEORDER MSBF") # Set the byte order to Big-Endian (default for Infinium oscilloscopes)
-        self.inst.write(":WAVeform:FORMAT ASCii")
+        #self.inst.write(":WAVeform:FORMAT ASCii")
          
         if isinstance(channel, list):
+            voltage_list = []
+            time_list = []
+            #waveCount = ""
+            segmentCount = ""
+            splitLevel = 1
+
             for ch in channel:
                 start_pt = 1
                 read_pnt = 0
@@ -231,21 +232,26 @@ class KeysightScope(object):
                             else:
                                 read_pnt = waveCount + 3
                                 print("in splt != splitLevel-2 else loop {}".format(splt))
-                            print("wfm_ascii wavecount {}".format(waveCount))
-			    #wfm_ascii_debug1 = self.inst.query(":WAVeform:DATA? {},{};*OPC?".format(start_pt, read_pnt*self.segCount))
-		            #with open('wfm_ascii_debug_1.txt', 'w') as f:
-		            #    f.write(wfm_ascii_debug1)
-                            wfm_ascii = self.inst.query(":WAVeform:DATA? {},{};*OPC?".format(start_pt, read_pnt)).split(";")[0]
-		            #with open('wfm_ascii_debug.txt', 'w') as f:
-		            #    f.write(wfm_ascii_debug)
-			    #wfm_ascii = wfm_ascii_debug.split(";")[0]
+                            print("wfm_ascii wavecount {} {}".format(waveCount, read_pnt*self.segCount))
+			    wfm_ascii_debug = self.inst.query(":WAVeform:DATA? {},{};*OPC?".format(1, read_pnt*self.segCount))
+		            print("wfm_ascii debug {}".format(wfm_ascii_debug))
+                            with open('wfm_ascii_debug.txt', 'w') as f:
+		                f.write(wfm_ascii_debug)
+                            wfm_ascii_debug0 = self.inst.query(":WAVeform:DATA? {},{};*OPC?".format(start_pt, read_pnt))
+		            print("wfm_ascii debug0 {}".format(wfm_ascii_debug0))
+                            with open('wfm_ascii_debug0.txt', 'w') as f:
+		                f.write(wfm_ascii_debug0)
+			    wfm_ascii = wfm_ascii_debug0.split(";")[0]
                             #wfm_ascii = self.inst.query(":WAVeform:DATA? {},{};*OPC?".format(start_pt, read_pnt)).split(";")[0]
-			    print("wfm_ascii before split {}".format(wfm_ascii))
-                            #with open('wfm_ascii_debug_0.txt', 'w') as f:
-                            #    f.write(wfm_ascii)
-                            #wfm_ascii = wfm_ascii[:-1]
-                            wfm_ascii = [float(x) for x in wfm_ascii.split(",")][:-1]
-			    print("wfm_ascii after split {}".format(wfm_ascii))
+			    print("wfm_ascii debug1 {}".format(wfm_ascii))
+                            with open('wfm_ascii_debug_1.txt', 'w') as f:
+                                f.write(wfm_ascii)
+                            wfm_ascii = wfm_ascii[:-1]
+			    print("wfm_ascii debug2 {}".format(wfm_ascii))
+                            with open('wfm_ascii_debug_2.txt', 'w') as f:
+                                f.write(wfm_ascii)
+                            wfm_ascii = [float(x) for x in wfm_ascii.split(',')]
+			    print("wfm_ascii debug3 {}".format(wfm_ascii))
                             voltage_data += wfm_ascii
                             print("set to get waveform")
                             if splt != splitLevel-2:
@@ -276,8 +282,8 @@ class KeysightScope(object):
             #print(len(voltage_list))
             #return [t_output, v_output]
             if seq_mode:
-                    segmentCount = self.inst.query(":WAVeform:SEGMented:COUNt?")
-                    return [time_list, voltage_list, segmentCount, waveCount]
+                segmentCount = self.inst.query(":WAVeform:SEGMented:COUNt?")
+                return [time_list, voltage_list, segmentCount, waveCount]
             else:
                 return [time_list, voltage_list]
         elif isinstance(channel, int):
